@@ -1,0 +1,341 @@
+---
+title: "practical_exercise_1, Methods 3, 2021, autumn semester"
+author: '[Matilde Just Sterup]'
+date: "[15/09/2021]"
+output: html_document
+---
+
+<style type="text/css">
+  body{
+  font-size: 14pt;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggrepel)
+```
+
+# 3) Brushing up on the General Linear Model
+
+We'll do a light start and get you back in the game of thinking about formulae and how to build your linear models  
+Finally, we'll have a few exercises, finishing off today's practical exercises 
+
+## A list of formulae
+```{r, eval=FALSE}
+formula <- y ~ x ## y as a function of x
+y ~ 1 ## model the intercept for "y"
+y ~ x ## model the main effect of x and the intercept for y
+y ~ x + 1 ## the same as above (+ 1 is implicit)
+y ~ x + 0 ## model the main effect of x and no intercept
+y ~ x - 1 ## the same as above
+y ~ 0 ## doesn't model anything (for completeness)
+y ~ x + z ## model the main effects x and z (and an intercept)
+y ~ x:z ## model interaction of x and z
+y ~ x * z ## model the main effects x and z and their interaction
+y ~ x + z + x:z ## the same as above
+```
+
+## Dataset mtcars
+Let's look at the "mtcars" data:  
+
+_[, 1]   mpg   Miles/(US) gallon  
+[, 2]	 cyl	 Number of cylinders  
+[, 3]	 disp	 Displacement (cu.in.)  
+[, 4]	 hp	 Gross horsepower  
+[, 5]	 drat	 Rear axle ratio  
+[, 6]	 wt	 Weight (lb/1000)  
+[, 7]	 qsec	 1/4 mile time  
+[, 8]	 vs	 V/S  
+[, 9]	 am	 Transmission (0 = automatic, 1 = manual)  
+[,10]	 gear	 Number of forward gears  
+[,11]	 carb	 Number of carburetors_  
+
+
+## Miles per gallon and weight
+
+We can do a scatter plot, and it looks like there is some relation between fuel usage and the weight of cars.
+Let's investigate this further
+
+```{r,fig.height=5, fig.width=6}
+par(font.lab=2, font.axis=2, cex=1.2)
+plot(mpg ~ wt, data=mtcars, xlab='Weight (lb/1000)', ylab='Miles/(US) gallon',
+     main='Scatter plot', ylim=c(0, 40))
+```
+
+# Exercises and objectives
+The objectives of today's exercises are:  
+1) To remind you of the (general) linear model, and how we can use it to make models in R  
+2) To make some informal model comparisons  
+3) To estimate models based on binomially distributed data  
+
+If you would like to read more about a given function, just prepend the function with a question mark, e.g.  
+``` {r, eval=FALSE}
+?lm
+```
+
+REMEMBER: In your report, make sure to include code that can reproduce the answers requested in the exercises below   
+
+## Exercise 1
+The general linear model: $Y = X \beta + \epsilon$:  
+Do a linear regression, expressing fuel usage as a function of weight using the function __lm__  
+```{r, eval=FALSE}
+data(mtcars)
+model <- lm(formula=mpg~wt, data=mtcars)
+
+```
+1. extract $\hat{\beta}$, $Y$, $\hat{Y}$, $X$ and $\epsilon$ from __model__ (hint: have a look at the function __model.matrix__)  
+    i. create a plot that illustrates $Y$ and $\hat{Y}$ (if you are feeling ambitious, also include $\epsilon$ (hint: you can use the function __arrows__))
+    
+```{r}
+summary(model) # an overview
+
+beta_hat <- model$coefficients #extracting beta hat
+X <- model.matrix(model) #design matrix
+Y <- mtcars$mpg #actual values
+Y_hat <- predict(model) #values estimated by the model
+epsilon <- model$residuals #residuals
+
+
+#Plot
+
+x <- mtcars$wt #actual x-values
+
+ggplot(mtcars, aes(wt, mpg))+ #actual data
+  geom_point()+
+  geom_point(aes(x,Y_hat))+ #points predicted by the quadratic model
+  stat_smooth(aes(y = Y_hat),method = "lm", formula = y ~ x, size = 1, color = "green")  
+
+```
+
+
+2. estimate $\beta$ for a quadratic model ($y = {\beta}_{2} x^2 + {\beta}_{1} x + {\beta}_{0}$) using ordinary least squares _without_ using __lm__; $\hat{\beta} = {({X}^{T} X)}^{-1} {X}^{T} Y$ (hint: add a third column to $X$ from step 1)
+
+```{r}
+X_new <- cbind(X, x^2)
+
+#OLS
+beta_hat_new <- solve(t(X_new) %*% X_new) %*% t(X_new) %*% Y
+beta_hat_new
+
+```
+
+3. compare your acquired $\hat{\beta}$ with the output of the corresponding quadratic model created using __lm__ (hint: use the function __I__, see details under help and the sub-section formula operators here: https://www.datacamp.com/community/tutorials/r-formula-tutorial)  
+    i. create a plot that illustrates $Y$ and $\hat{Y}$ (if you are feeling ambitious, also include $\epsilon$ (hint: you can use the function __arrows__))  
+    
+
+```{r}
+model2 <- lm(Y~X_new[,3]+X_new[,2])
+summary(model2)
+
+#The estimated betas are the same for OLS and lm
+
+#Plot
+Y_hat_new <- predict(model2)
+
+ggplot(mtcars, aes(wt, mpg))+ #actual data
+  geom_point()+
+  geom_point(aes(x,Y_hat_new))+ #points predicted by the quadratic model
+  stat_smooth(aes(y = Y_hat_new),method = "lm", formula = y ~ x + I(x^2), size = 1, color = "red")
+  
+
+```
+
+
+## Exercise 2
+Compare the plotted quadratic fit to the linear fit  
+
+1. which seems better?  
+
+- The quadratic fit seems better
+
+2. calculate the sum of squared errors, (show the calculation based on $\epsilon$). Which fit has the lower sum? 
+
+```{r}
+sum((model$residuals)^2) #linear
+sum((model2$residuals)^2) #quadratic
+
+#The quadratic fit has the lower sum of squared errors.
+```
+
+
+3. now make a cubic fit ($y = {\beta}_{3} x^3 + {\beta}_{2} x^2 + {\beta}_{1} x + {\beta}_{0}$) and compare it to the quadratic fit  
+    i. create a plot that illustrates $Y$ and $\hat{Y}$ for both the cubic and the quadratic fits (plot them in the same plot) 
+
+```{r}
+X3 <- cbind(Xnew, x^3) 
+
+model3 <- lm(Y~X3[,4] + X3[,3] + X3[,2])
+summary(model3)
+
+Y_hat_3 <- predict(model3)
+
+#Plot
+ggplot(mtcars, aes(wt, mpg))+ #actual data
+  geom_point()+
+  geom_point(aes(x,Y_hat_new))+ #points predicted by the quadratic model
+  stat_smooth(aes(y = Y_hat_new),method = "lm", formula = y ~ x + I(x^2), size = 1, color = "red")+
+  geom_point(aes(x, Y_hat_3))+ #points predicted by the cubic model
+  stat_smooth(aes(y = Y_hat_3),method = "lm", formula = y ~ x + I(x^2) + I(x^3), size = 1, color = "blue")
+```
+
+    ii. compare the sum of squared errors  
+```{r}
+#SSE
+sum((model2$residuals)^2) - sum((model3$residuals)^2)
+  
+#there is almost no difference in the sum of squared errors for the two models, which makes sense, since they are shown to be almost on top of each other in the plot
+```
+
+
+    iii. what's the estimated value of the "cubic" (${\beta}_3$) parameter? Comment on this! 
+
+```{r}
+#Beta_3
+
+coef(model3)[2]
+#The estimate of beta3 is quite small, which means that the model is not made very different by including it (compared to going with a quadratic model as before) 
+```
+4. bonus question: which summary statistic is the fitted value (_Intercept_ or ${\beta}_0$ in $y = {\beta}_0$) below identical to?
+```{r, echo=FALSE}
+lm(mpg ~ 1, data=mtcars)
+```
+
+
+## Exercise 3
+Doing a logistic regression - estimating the probability that a car has automatic transmission (0) or manual transmission (1) based on its weight
+```{r, eval=FALSE}
+data(mtcars)
+logistic.model <- glm(formula=am~wt, data=mtcars, family='binomial')
+summary(logistic.model)
+
+```
+
+Probabilities live on the range $(0, 1)$ - using the so-called logit function as a "link-function" we can map these onto the range $(-\infty, \infty)$, i.e. the real numbers.  
+  
+What we model in this case is: $Pr(y = 1) = logit^{-1}(X \beta)$, i.e. the probability of a car having manual transmission, given its weight. $X \beta$ is called the linear predictor; compare with $Y = X \beta + \epsilon$ 
+It is helpful to define the logit function and its inverse function for the following:  
+
+```{r}
+logit <-     function(x) log(x / (1 - x))
+inv.logit <- function(x) exp(x) / (1 + exp(x))
+```
+
+1. plot the fitted values for __logistic.model__:  
+    i. what is the relation between the __linear.predictors__ and the __fitted_values__ of the __logistic.model__ object?
+```{r}
+# I do not understand this question
+```
+
+
+2. plot the logistic function, you've estimated based on your $\hat{\beta}$, (not just the fitted values). Use an _xlim_ of (0, 7)
+    i. what's the interpretation of the estimated $\hat{\beta}_0$ (the _Intercept_)
+```{r}
+#Plot
+#mtcars <- mtcars %>% rownames_to_column()
+
+
+ggplot(mtcars, aes(x,am))+
+  geom_point(aes(colour=inv.logit(predict(logistic.model))))+
+  xlim(0,7)+
+  stat_smooth(method="glm", se=FALSE, method.args = list(family=binomial))
+  
+
+#i 
+#The estimated intercept is the predicted value on the log-odds scale for a hypothetical car with weight wt = 0.
+
+```
+
+    ii. calculate the estimated probability that the Pontiac Firebird has automatic transmission, given its weight
+
+```{r}
+# The estimated probability of the Pontiac Firebird having automatic (0) transmission is about 97 %:
+1-inv.logit(12.040-4.024*3.845)
+```
+
+    iii. bonus question - plot the logistic function and highlight all the cars where we guessed wrongly, if we used the following "quantizer" function:
+    
+\begin{equation}
+  transmission_{guess}=
+  \begin{cases}
+    1 (manual), & \text{if}\ PR(y = 1) ≥ 0.5 \\
+    0 (automatic), & \text{otherwise}
+  \end{cases}
+\end{equation}    
+    
+```{r}
+#iii
+
+ggplot(mtcars, aes(x,inv.logit(predict(logistic.model))), label = rowname)+
+  geom_point(aes(colour=am))+
+  xlim(0,7)+
+  geom_text_repel(aes(label=ifelse(inv.logit(predict(logistic.model))>0.5 & am == 0|inv.logit(predict(logistic.model))<0.5 & am == 1,rowname, ''), colour = am),hjust=0, vjust=0)
+```
+
+
+3. plot quadratic fit alongside linear fit  
+    i. judging visually, does adding a quadratic term make a difference?
+```{r}
+
+#Plot
+ggplot(mtcars, aes(wt, mpg))+ #actual data
+  geom_point()+
+  geom_point(aes(x,Y_hat_new))+ #points predicted by the quadratic model
+  stat_smooth(aes(y = Y_hat_new),method = "lm", formula = y ~ x + I(x^2), size = 1, color = "red")+ #quadratic
+  geom_point(aes(x,Y_hat ))+ #points predicted by the linear model
+  stat_smooth(aes(y = Y_hat),method = "lm", formula = y ~ x, color = "green") #linear fit
+
+#i
+#Yes, adding the quadratic term makes the model fit the data better, as we also calculated when we compared SSE in exercise 2.2.
+```
+
+    ii. check the details in the help of the AIC function - which of the models provide the better fit according to the AIC values and the residual deviance respectively?
+```{r}
+AIC(model, model2, model3)
+
+#The model with the lowest AIC value is the quadratic model (model2), making it the model that is best suited to fit our data according to AIC. 
+
+#Residual deviance??
+
+
+```
+
+    iii. in your own words, why might it be good to penalise a model like the quadratic model, we just fitted.'
+
+I am not entirely sure what is meant by this question. What does it mean to 'penalise' a model? To investigate it? To choose another model? I will say that it makes sense to go with the simplest model if making the model more complex adds nothing to it (in terms of AIC/SSE). Therefore I would go with the quadratic model rather than the cubic model 
+    
+# Next time
+We are going to looking at extending our models with so called random effects. We need to install the package "lme4" for this. Run the code below or install it from your package manager (Linux)  
+```{r, eval=FALSE}
+install.packages("lme4")
+```
+We can fit a model like this:
+
+```{r}
+library(lme4)
+mixed.model <- lmer(mpg ~ wt + (1 | cyl), data=mtcars)
+```
+
+They result in plots like these:
+```{r}
+par(font.lab=2, font.axis=2, cex=1.2)
+plot(mtcars$wt, fitted.values(mixed.model),
+     main='Linear regression with group intercepts (n cylinders)',
+    xlab='Weight (lb/1000)', ylab='Miles/(US) gallon',
+    pch=3)
+```
+
+and this
+```{r}
+mixed.model <- lmer(mpg ~ wt + (wt | cyl), data=mtcars)
+plot(mtcars$wt, fitted.values(mixed.model),
+     main='Linear regression with group intercepts and group slopes (n cylinders)',
+    xlab='Weight (lb/1000)', ylab='Miles/(US) gallon',
+    pch=3)
+``` 
+
+but also new warnings like:  
+
+Warning:
+In checkConv(attr(opt, "derivs"), opt\$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0121962 (tol = 0.002, component 1)
