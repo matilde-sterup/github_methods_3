@@ -13,94 +13,8 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(ggrepel)
 ```
-
-# Practical Exercise 1
-The goals of today's exercise are:
-
-1) create a _GitHub_ account and link it with _RStudio_ and create a new repository 
-2) getting you back into _R_ and to get you acquainted with _Python_
-3) brushing up on the general linear model
-
-# 1) Creating a _GitHub_ account and linking it to RStudio
-
-## _GitHub_
-
-Go to www.github.com and sign up if you aren't already  
-![__Figure__: _GitHub_'s front page](images/github_front_page.png)  
-
-If you are not already using personal tokens for authentication, have a look here:  
-https://www.edgoad.com/2021/02/using-personal-access-tokens-with-git-and-github.html
-
-Then install _R_ and _RStudio_ if you haven't already
-
-## _R_
-
-### Mac and Windows
-_R_ can be downloaded and installed from https://mirrors.dotsrc.org/cran/ (Danish mirror)  
-
-### Linux
-Can also be installed from the link above, but it is more convenient to use your package manager, e.g.
-
-![__Figure__: my package manager](images/package_manager.png)
-
-### _RStudio_ (IDE: Integrated Development Editor)
-
-_RStudio_ can be downloaded from https://www.rstudio.com/products/rstudio/download/
-
-## Link _GitHub_ and _RStudio_
-
-Link your _GitHub_ account to _RStudio_ and create a repository for the assignments and practical exercises.  
-Follow this tutorial: https://happygitwithr.com (Chapter 12)
-
-# 2) Prepare your _R_ and _Python_ environments
-Today's first goal is to get your _R_ and _Python_ environments up and running  
-
-## _R_
-
-### _R_ Packages
-
-Make sure you can run _R Markdown_; create a new _R Markdown_ document - if you're asked to install extra packages, do so.  
-We'll need more packages later, but we'll install as we go...
-
-## _Python_
-
-Due to the fact that _Python_ packages have a lot of interdependencies that may cause compability problems if you keep everything in one big environment, it is advisable to use a package management system like _Conda_.  
-I propose using _Miniconda_ that can be downloaded from here: https://docs.conda.io/en/latest/miniconda.html (choose 64-bit)  
-  
-We'll not do much with it today, but will return to it for the machine learning part.  
-  
-An advantage is that separate environments can be maintained that are each focused on its own niche:  
-
-![__Figure__: my environments: _mne_ is for analysis of magnetoencephalographic data, _psychopy_ is for presenting experiment scenarios, _fsl_ is for processing magnetic resonance imaging data](images/list_of_environments.png)
-
-Then use the yml-file from _GitHub_ to create the appropriate environment:
-```{bash, eval=FALSE}
-# CODE TO BE RUN IN A BASH TERMINAL
-## create environment
-conda env create -f methods3_environment.yml
-## activate environment
-conda activate methods3
-## after activation, you can run Spyder, (IDE)
-spyder
-```
-
-![__Figure__: _Spyder_](images/spyder.png)
-
-### Check that it works
-
-```{python}
-a = 2 + 2
-b = a + 3
-print(b)
-
-a_list = [1, 'a', 2.3] # square brackets initialize lists that can contain any combination of any type of object (an integer, a string and a float in this case)
-## Note that Python is zero-indexed ()
-print(a_list[0]) ## prints the first entry
-print(a_list[1]) ## prints the second entry
-```
-### Zero-indexing (reference)
-https://www.cs.utexas.edu/users/EWD/transcriptions/EWD08xx/EWD831.html
 
 # 3) Brushing up on the General Linear Model
 
@@ -167,32 +81,134 @@ The general linear model: $Y = X \beta + \epsilon$:
 Do a linear regression, expressing fuel usage as a function of weight using the function __lm__  
 ```{r, eval=FALSE}
 data(mtcars)
-model <- lm(formula=..., data=...)
+model <- lm(formula=mpg~wt, data=mtcars)
+
 ```
 1. extract $\hat{\beta}$, $Y$, $\hat{Y}$, $X$ and $\epsilon$ from __model__ (hint: have a look at the function __model.matrix__)  
     i. create a plot that illustrates $Y$ and $\hat{Y}$ (if you are feeling ambitious, also include $\epsilon$ (hint: you can use the function __arrows__))
+    
+```{r}
+summary(model) # an overview
+
+beta_hat <- model$coefficients #extracting beta hat
+X <- model.matrix(model) #design matrix
+Y <- mtcars$mpg #actual values
+Y_hat <- predict(model) #values estimated by the model
+epsilon <- model$residuals #residuals
+
+
+#Plot
+
+x <- mtcars$wt #actual x-values
+
+ggplot(mtcars, aes(wt, mpg))+ #actual data
+  geom_point()+
+  geom_point(aes(x,Y_hat))+ #points predicted by the quadratic model
+  stat_smooth(aes(y = Y_hat),method = "lm", formula = y ~ x, size = 1, color = "green")  
+
+```
+
+
 2. estimate $\beta$ for a quadratic model ($y = {\beta}_{2} x^2 + {\beta}_{1} x + {\beta}_{0}$) using ordinary least squares _without_ using __lm__; $\hat{\beta} = {({X}^{T} X)}^{-1} {X}^{T} Y$ (hint: add a third column to $X$ from step 1)
+
+```{r}
+X_new <- cbind(X, x^2)
+
+#OLS
+beta_hat_new <- solve(t(X_new) %*% X_new) %*% t(X_new) %*% Y
+beta_hat_new
+
+```
+
 3. compare your acquired $\hat{\beta}$ with the output of the corresponding quadratic model created using __lm__ (hint: use the function __I__, see details under help and the sub-section formula operators here: https://www.datacamp.com/community/tutorials/r-formula-tutorial)  
     i. create a plot that illustrates $Y$ and $\hat{Y}$ (if you are feeling ambitious, also include $\epsilon$ (hint: you can use the function __arrows__))  
+    
+
+```{r}
+model2 <- lm(Y~X_new[,3]+X_new[,2])
+summary(model2)
+
+#The estimated betas are the same for OLS and lm
+
+#Plot
+Y_hat_new <- predict(model2)
+
+ggplot(mtcars, aes(wt, mpg))+ #actual data
+  geom_point()+
+  geom_point(aes(x,Y_hat_new))+ #points predicted by the quadratic model
+  stat_smooth(aes(y = Y_hat_new),method = "lm", formula = y ~ x + I(x^2), size = 1, color = "red")
+  
+
+```
+
 
 ## Exercise 2
 Compare the plotted quadratic fit to the linear fit  
 
 1. which seems better?  
-2. calculate the sum of squared errors, (show the calculation based on $\epsilon$). Which fit has the lower sum?  
+
+- The quadratic fit seems better
+
+2. calculate the sum of squared errors, (show the calculation based on $\epsilon$). Which fit has the lower sum? 
+
+```{r}
+sum((model$residuals)^2) #linear
+sum((model2$residuals)^2) #quadratic
+
+#The quadratic fit has the lower sum of squared errors.
+```
+
+
 3. now make a cubic fit ($y = {\beta}_{3} x^3 + {\beta}_{2} x^2 + {\beta}_{1} x + {\beta}_{0}$) and compare it to the quadratic fit  
-    i. create a plot that illustrates $Y$ and $\hat{Y}$ for both the cubic and the quadratic fits (plot them in the same plot)  
+    i. create a plot that illustrates $Y$ and $\hat{Y}$ for both the cubic and the quadratic fits (plot them in the same plot) 
+
+```{r}
+X3 <- cbind(Xnew, x^3) 
+
+model3 <- lm(Y~X3[,4] + X3[,3] + X3[,2])
+summary(model3)
+
+Y_hat_3 <- predict(model3)
+
+#Plot
+ggplot(mtcars, aes(wt, mpg))+ #actual data
+  geom_point()+
+  geom_point(aes(x,Y_hat_new))+ #points predicted by the quadratic model
+  stat_smooth(aes(y = Y_hat_new),method = "lm", formula = y ~ x + I(x^2), size = 1, color = "red")+
+  geom_point(aes(x, Y_hat_3))+ #points predicted by the cubic model
+  stat_smooth(aes(y = Y_hat_3),method = "lm", formula = y ~ x + I(x^2) + I(x^3), size = 1, color = "blue")
+```
+
     ii. compare the sum of squared errors  
-    iii. what's the estimated value of the "cubic" (${\beta}_3$) parameter? Comment on this!  
+```{r}
+#SSE
+sum((model2$residuals)^2) - sum((model3$residuals)^2)
+  
+#there is almost no difference in the sum of squared errors for the two models, which makes sense, since they are shown to be almost on top of each other in the plot
+```
+
+
+    iii. what's the estimated value of the "cubic" (${\beta}_3$) parameter? Comment on this! 
+
+```{r}
+#Beta_3
+
+coef(model3)[2]
+#The estimate of beta3 is quite small, which means that the model is not made very different by including it (compared to going with a quadratic model as before) 
+```
 4. bonus question: which summary statistic is the fitted value (_Intercept_ or ${\beta}_0$ in $y = {\beta}_0$) below identical to?
 ```{r, echo=FALSE}
 lm(mpg ~ 1, data=mtcars)
 ```
+
+
 ## Exercise 3
 Doing a logistic regression - estimating the probability that a car has automatic transmission (0) or manual transmission (1) based on its weight
 ```{r, eval=FALSE}
 data(mtcars)
-logistic.model <- glm(formula=..., data=..., family='binomial)
+logistic.model <- glm(formula=am~wt, data=mtcars, family='binomial')
+summary(logistic.model)
+
 ```
 
 Probabilities live on the range $(0, 1)$ - using the so-called logit function as a "link-function" we can map these onto the range $(-\infty, \infty)$, i.e. the real numbers.  
@@ -207,9 +223,36 @@ inv.logit <- function(x) exp(x) / (1 + exp(x))
 
 1. plot the fitted values for __logistic.model__:  
     i. what is the relation between the __linear.predictors__ and the __fitted_values__ of the __logistic.model__ object?
+```{r}
+# I do not understand this question
+```
+
+
 2. plot the logistic function, you've estimated based on your $\hat{\beta}$, (not just the fitted values). Use an _xlim_ of (0, 7)
     i. what's the interpretation of the estimated $\hat{\beta}_0$ (the _Intercept_)
+```{r}
+#Plot
+#mtcars <- mtcars %>% rownames_to_column()
+
+
+ggplot(mtcars, aes(x,am))+
+  geom_point(aes(colour=inv.logit(predict(logistic.model))))+
+  xlim(0,7)+
+  stat_smooth(method="glm", se=FALSE, method.args = list(family=binomial))
+  
+
+#i 
+#The estimated intercept is the predicted value on the log-odds scale for a hypothetical car with weight wt = 0.
+
+```
+
     ii. calculate the estimated probability that the Pontiac Firebird has automatic transmission, given its weight
+
+```{r}
+# The estimated probability of the Pontiac Firebird having automatic (0) transmission is about 97 %:
+1-inv.logit(12.040-4.024*3.845)
+```
+
     iii. bonus question - plot the logistic function and highlight all the cars where we guessed wrongly, if we used the following "quantizer" function:
     
 \begin{equation}
@@ -220,10 +263,46 @@ inv.logit <- function(x) exp(x) / (1 + exp(x))
   \end{cases}
 \end{equation}    
     
+```{r}
+#iii
+
+ggplot(mtcars, aes(x,inv.logit(predict(logistic.model))), label = rowname)+
+  geom_point(aes(colour=am))+
+  xlim(0,7)+
+  geom_text_repel(aes(label=ifelse(inv.logit(predict(logistic.model))>0.5 & am == 0|inv.logit(predict(logistic.model))<0.5 & am == 1,rowname, ''), colour = am),hjust=0, vjust=0)
+```
+
+
 3. plot quadratic fit alongside linear fit  
     i. judging visually, does adding a quadratic term make a difference?
+```{r}
+
+#Plot
+ggplot(mtcars, aes(wt, mpg))+ #actual data
+  geom_point()+
+  geom_point(aes(x,Y_hat_new))+ #points predicted by the quadratic model
+  stat_smooth(aes(y = Y_hat_new),method = "lm", formula = y ~ x + I(x^2), size = 1, color = "red")+ #quadratic
+  geom_point(aes(x,Y_hat ))+ #points predicted by the linear model
+  stat_smooth(aes(y = Y_hat),method = "lm", formula = y ~ x, color = "green") #linear fit
+
+#i
+#Yes, adding the quadratic term makes the model fit the data better, as we also calculated when we compared SSE in exercise 2.2.
+```
+
     ii. check the details in the help of the AIC function - which of the models provide the better fit according to the AIC values and the residual deviance respectively?
-    iii. in your own words, why might it be good to penalise a model like the quadratic model, we just fitted.
+```{r}
+AIC(model, model2, model3)
+
+#The model with the lowest AIC value is the quadratic model (model2), making it the model that is best suited to fit our data according to AIC. 
+
+#Residual deviance??
+
+
+```
+
+    iii. in your own words, why might it be good to penalise a model like the quadratic model, we just fitted.'
+
+I am not entirely sure what is meant by this question. What does it mean to 'penalise' a model? To investigate it? To choose another model? I will say that it makes sense to go with the simplest model if making the model more complex adds nothing to it (in terms of AIC/SSE). Therefore I would go with the quadratic model rather than the cubic model 
     
 # Next time
 We are going to looking at extending our models with so called random effects. We need to install the package "lme4" for this. Run the code below or install it from your package manager (Linux)  
