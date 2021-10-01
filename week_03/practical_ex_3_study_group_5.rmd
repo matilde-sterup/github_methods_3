@@ -229,9 +229,21 @@ ggpubr::ggarrange(qq7, qq10, qq12, qq29)
 ```
 
 
+YES!
 
+2) Now do a partial pooling model modelling objective response times as dependent on _task_? (set `REML=FALSE` in your `lmer`-specification) 
 
-2) Now do a partial pooling model modelling objective response times as dependent on _task_? (set `REML=FALSE` in your `lmer`-specification)  
+```{r}
+experiment_correct <- experiment %>% filter(correct == 1)
+
+experiment_correct$task <- as.factor(experiment_correct$task)
+experiment_correct$task <- relevel(experiment_correct$task, ref = "singles")
+
+model <- lmer(rt.obj~task + (1|subject), REML = FALSE, data = experiment_correct)
+
+summary(model)
+```
+
     i. which would you include among your random effects and why? (support your choices with relevant measures, taking into account variance explained and number of parameters going into the modelling)  
     ii. explain in your own words what your chosen models says about response times between the different tasks  
 3) Now add _pas_ and its interaction with _task_ to the fixed effects  
