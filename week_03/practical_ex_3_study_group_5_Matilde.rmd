@@ -1,0 +1,280 @@
+---
+title: "practical_exercise_3, Methods 3, 2021, autumn semester"
+author: '[Matilde Sterup]'
+date: "[29-09-2021]"
+output: html_document
+---
+
+<style type="text/css">
+  body{
+  font-size: 14pt;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Exercises and objectives
+The objectives of the exercises of this assignment are:  
+1) Download and organise the data and model and plot staircase responses based on fits of logistic functions  
+2) Fit multilevel models for response times  
+3) Fit multilevel models for count data  
+
+REMEMBER: In your report, make sure to include code that can reproduce the answers requested in the exercises below (__MAKE A KNITTED VERSION__)  
+REMEMBER: This assignment will be part of your final portfolio
+
+## Exercise 1
+
+Go to https://osf.io/ecxsj/files/ and download the files associated with Experiment 2 (there should be 29).  
+The data is associated with Experiment 2 of the article at the following DOI https://doi.org/10.1016/j.concog.2019.03.007  
+
+1) Put the data from all subjects into a single data frame  
+```{r}
+library(readbulk)
+library(tidyverse)
+data <- read_bulk(directory = "C:/Users/Matilde Just Sterup/Desktop/Cogsci/Methods 3/github_methods_3/week_03/data")
+```
+
+2) Describe the data and construct extra variables from the existing variables  
+i. add a variable to the data frame and call it _correct_ (have it be a _logical_ variable). Assign a 1 to each row where the subject indicated the correct answer and a 0 to each row where the subject indicated the incorrect answer (__Hint:__ the variable _obj.resp_ indicates whether the subject answered "even", _e_ or "odd", _o_, and the variable _target_type_ indicates what was actually presented.
+
+```{r}
+data$correct <- ifelse(data$obj.resp == "e" & data$target.type == "even"|data$obj.resp == "o" & data$target.type == "odd", 1, 0)
+```
+
+
+ii. describe what the following variables in the data frame contain, _trial.type_, _pas_, _trial_, _target.contrast_, _cue_, _task_, _target_type_, _rt.subj_, _rt.obj_, _obj.resp_, _subject_ and _correct_. (That means you can ignore the rest of the variables in your description). For each of them, indicate and argue for what `class` they should be classified into, e.g. _factor_, _numeric_ etc.  
+
+trial.type: staircase or experiment. Before the actual experimental trials, a number of staircase trials are completed. Class = character, should be a factor if used in modeling. Most likely we just filter out the "staircases")
+
+pas: a scale from 1-4, confidence rating or perceptual awareness scale. A rating by the participant of how clearly the target was seen.
+
+trial: trial number, first trials are marked as staircase. Trial number resets for trials marked as experiment.
+
+target.contrast: contrast of target stumulus relative to the background, adjusted to each participant in the staircase trials. target.contrast is held constant in experiment trials.
+
+cue: a scale of 0-35, indicating which of the 36 cues was presented. A cue can consist of 2, 4 or 8 numbers.
+
+task: what type of cue was presented. Singles = x:x, pairs = xx:xx, quadruplet = xxx:xxx
+
+target.type: target type, even or odd, whether the target number presented was an even or an odd number.
+
+rt.subj: how long time passed before the participant indicated their confidence (pas)
+
+rt.obj: how long time passed before participants answered whether the target was even or odd.
+
+obj.resp: What the participants answered, o for odd, e for even.
+
+subject: the participant
+
+correct: whether the obj.resp matches the target_type
+
+
+
+
+
+
+iii. for the staircasing part __only__, create a plot for each subject where you plot the estimated function (on the _target.contrast_ range from 0-1) based on the fitted values of a model (use `glm`) that models _correct_ as dependent on _target.contrast_. These plots will be our _no-pooling_ (YOU MEAN COMPLETE POOLING) model. Comment on the fits - do we have enough data to plot the logistic functions? 
+
+```{r 1.2iii}
+#Complete pooling
+staircase <- data %>% filter(trial.type== "staircase")
+
+m_complete <- glm(correct~target.contrast, data = staircase, family = "binomial")
+
+fitted <- fitted(m_complete)
+
+staircase$fitted_values_complete <- fitted
+
+ggplot(staircase, (aes(x = target.contrast, y = correct)))+ 
+  geom_point()+
+  geom_point(aes(target.contrast, fitted_values_complete), color = "blue", shape = 17)+
+  geom_line(aes(target.contrast, fitted_values_complete))+
+  facet_wrap(.~subject)+ 
+  labs(title = "Complete Pooling") +
+  theme_bw()
+
+#No pooling
+m_no <- glm(correct~target.contrast + subject + target.contrast:subject, data = staircase, family = "binomial")
+
+fitted <- fitted(m_no)
+
+staircase$fitted_values_no <- fitted
+
+ggplot(staircase, (aes(x = target.contrast, y = correct)))+ 
+  geom_point()+
+  geom_point(aes(target.contrast, fitted_values_no), color = "blue", shape = 17)+
+  geom_line(aes(target.contrast, fitted))+
+  facet_wrap(.~subject)+
+  labs(title = "No Pooling") +
+  theme_bw()
+```
+
+
+iv. on top of those plots, add the estimated functions (on the _target.contrast_ range from 0-1) for each subject based on partial pooling model (use `glmer` from the package `lme4`) where unique intercepts and slopes for _target.contrast_ are modelled for each _subject_  
+
+```{r}
+library(lme4)
+
+#partial pooling
+m_p <- glmer(correct~target.contrast + (target.contrast|subject), data = staircase, family = "binomial")
+fitted <- fitted(m_p)
+staircase$fitted_values_partial <- fitted
+
+ggplot(staircase, (aes(x = target.contrast, y = correct)))+ 
+  geom_point()+
+  geom_line(aes(target.contrast, fitted_values_partial), color = "blue") +
+  geom_point(aes(target.contrast, fitted_values_partial), color = "blue", shape = 17)+
+  facet_wrap(.~subject)+ 
+  labs(title = "Partial Pooling") +
+  theme_bw()
+```
+
+
+v. in your own words, describe how the partial pooling model allows for a better fit (THAN COMPLETE POOLING) for each subject 
+
+
+
+## Exercise 2
+
+Now we __only__ look at the _experiment_ trials (_trial.type_)  
+
+```{r}
+experiment <- data %>% filter(trial.type == "experiment")
+
+subject7 <- experiment %>% filter(subject == 7)
+subject10 <- experiment %>% filter(subject == 10)
+subject12 <- experiment %>% filter(subject == 12)
+subject29 <- experiment %>% filter(subject == 29)
+
+```
+
+1) Pick four subjects and plot their Quantile-Quantile (Q-Q) plots for the residuals of their objective response times (_rt.obj_) based on a model where only intercept is modelled  
+
+```{r}
+model7 <- lm(rt.obj~1, data = subject7)
+gg7 <- ggplot(subject7, aes(sample = residuals(model7)))+
+  stat_qq()+
+  geom_qq_line()+
+  labs(title = "Subject 7")+
+  theme_bw()
+
+
+
+#qqplot(resid(model7))
+#qqline(resid(model7))
+
+model10 <- lm(rt.obj~1, data = subject10)
+gg10 <- ggplot(subject10, aes(sample = residuals(model10)))+
+  stat_qq()+
+  geom_qq_line()+
+  labs(title = "Subject 10")+
+  theme_bw()
+
+model12 <- lm(rt.obj~1, data = subject12)
+gg12 <- ggplot(subject12, aes(sample = residuals(model12)))+
+  stat_qq()+
+  geom_qq_line()+
+  labs(title = "Subject 12")+
+  theme_bw()
+
+model29 <- lm(rt.obj~1, data = subject29)
+gg29 <- ggplot(subject29, aes(sample = residuals(model29)))+
+  stat_qq()+
+  geom_qq_line()+
+  labs(title = "Subject 29")+
+  theme_bw()
+
+
+ggpubr::ggarrange(gg7, gg10, gg12, gg29)
+```
+
+i. comment on these  
+
+We should log transform reaction times, we have some extreme sample values that distort the image :-) 
+
+ii. does a log-transformation of the response time data improve the Q-Q-plots?  
+```{r}
+model7log <- lm(log(rt.obj)~1, data = subject7)
+qq7 <- ggplot(subject7, aes(sample = residuals(model7log)))+
+  stat_qq()+
+  geom_qq_line()+
+  labs(title = "Subject 7")+
+  theme_bw()
+
+model10log <- lm(log(rt.obj)~1, data = subject10)
+qq10 <- ggplot(subject10, aes(sample = residuals(model10log)))+
+  stat_qq()+
+  geom_qq_line()+
+  labs(title = "Subject 10")+
+  theme_bw()
+
+model12log <- lm(log(rt.obj)~1, data = subject12)
+qq12 <- ggplot(subject12, aes(sample = residuals(model12log)))+
+  stat_qq()+
+  geom_qq_line()+
+  labs(title = "Subject 12")+
+  theme_bw()
+
+model29log <- lm(log(rt.obj)~1, data = subject29)
+qq29 <- ggplot(subject29, aes(sample = residuals(model29log)))+
+  stat_qq()+
+  geom_qq_line()+
+  labs(title = "Subject 29")+
+  theme_bw()
+
+
+ggpubr::ggarrange(qq7, qq10, qq12, qq29)
+```
+
+
+YES!
+
+2) Now do a partial pooling model modelling objective response times as dependent on _task_? (set `REML=FALSE` in your `lmer`-specification) 
+
+```{r}
+experiment_correct <- experiment %>% filter(correct == 1)
+
+experiment_correct$task <- as.factor(experiment_correct$task)
+experiment_correct$task <- relevel(experiment_correct$task, ref = "singles")
+
+model <- lmer(rt.obj~task + (1|subject), REML = FALSE, data = experiment_correct)
+
+summary(model)
+
+```
+
+    i. which would you include among your random effects and why? (support your choices with relevant measures, taking into account variance explained and number of parameters going into the modelling)  
+    ii. explain in your own words what your chosen models says about response times between the different tasks  
+3) Now add _pas_ and its interaction with _task_ to the fixed effects  
+    i. how many types of group intercepts (random effects) can you add without ending up with convergence issues or singular fits?  
+    ii. create a model by adding random intercepts (without modelling slopes) that results in a singular fit - then use `print(VarCorr(<your.model>), comp='Variance')` to inspect the variance vector - explain why the fit is singular (Hint: read the first paragraph under details in the help for `isSingular`)
+    iii. in your own words - how could you explain why your model would result in a singular fit?  
+    
+## Exercise 3
+
+1) Initialise a new data frame, `data.count`. _count_ should indicate the number of times they categorized their experience as _pas_ 1-4 for each _task_. I.e. the data frame would have for subject 1: for task:singles, pas1 was used # times, pas2 was used # times, pas3 was used # times and pas4 was used # times. You would then do the same for task:pairs and task:quadruplet  
+
+```{r}
+## you can start from this if you want to, but you can also make your own from scratch
+data.count <- data.frame(count = numeric(), 
+                         pas = numeric(), ## remember to make this into a factor afterwards
+                         task = numeric(), ## and this too
+                         subject = numeric()) ## and this too
+```        
+
+2) Now fit a multilevel model that models a unique "slope" for _pas_ for each _subject_ with the interaction between _pas_ and _task_ and their main effects being modelled  
+    i. which family should be used?  
+    ii. why is a slope for _pas_ not really being modelled?  
+    iii. if you get a convergence error, try another algorithm (the default is the _Nelder_Mead_) - try (_bobyqa_) for which the `dfoptim` package is needed. In `glmer`, you can add the following for the `control` argument: `glmerControl(optimizer="bobyqa")` (if you are interested, also have a look at the function `allFit`)
+    iv. when you have a converging fit - fit a model with only the main effects of _pas_ and _task_. Compare this with the model that also includes the interaction  
+    v. indicate which of the two models, you would choose and why  
+    vi. based on your chosen model - write a short report on what this says about the distribution of ratings as dependent on _pas_ and _task_  
+    vii. include a plot that shows the estimated amount of ratings for four subjects of your choosing 
+3) Finally, fit a multilevel model that models _correct_ as dependent on _task_ with a unique intercept for each _subject_  
+    i. does _task_ explain performance?  
+    ii. add _pas_ as a main effect on top of _task_ - what are the consequences of that?  
+    iii. now fit a multilevel model that models _correct_ as dependent on _pas_ with a unique intercept for each _subject_
+    iv. finally, fit a model that models the interaction between _task_ and _pas_  and their main effects  
+    v. describe in your words which model is the best in explaining the variance in accuracy  
