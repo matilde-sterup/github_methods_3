@@ -1,5 +1,5 @@
 ---
-title: "practical_exercise_3, Methods 3, 2021, autumn semester"
+title: "practical_exercise_3 (notes), Methods 3, 2021, autumn semester"
 author: '[Matilde Sterup]'
 date: "[29-09-2021]"
 output: html_document
