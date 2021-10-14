@@ -121,15 +121,79 @@ likelihood_function <- function(model, y_i){
 }
 
 ```
-To obtain the exact y-values in the exact same order is extremely unlikely given the model, simply because we have very many data points. The likelihood is so close to zero, that our computer displays '0' as output of the function.
+
 
     ii. the log-likelihood-function for logistic regression is: $l(p) = {\displaystyle\sum_{i=1}^N}[y_i\ln{p}+(1-y_i)\ln{(1-p)}$. Create a function that calculates the log-likelihood  
-    
 
-    iii. apply both functions to the pooling model you just created. Make sure that the log-likelihood matches what is returned from the _logLik_ function for the pooled model. Does the likelihood-function return a value that is surprising? Why is the log-likelihood preferable when working with computers with limited precision?  
+```{r}
+log_likelihood_function <- function(model, y_i){
+  p <- fitted.values(model)
+  y_i <- as.numeric(as.character(y_i))
+  
+  log_likelihood <- sum(y_i*log(p)+(1-y_i)*log(1-p))
+  return(log_likelihood)
+}
+
+```
+
+
+    iii. apply both functions to the pooling model you just created. Make sure that the log-likelihood matches what is returned from the _logLik_ function for the pooled model. Does the likelihood-function return a value that is surprising? Why is the log-likelihood preferable when working with computers with limited precision?
+
+```{r}
+#applying the functions
+likelihood_function(cp, data$correct)
+
+log_likelihood_function(cp, data$correct)
+logLik(cp)
+```
+Comments:
+Our log_likelihood_function gives the same result as the logLik function (yay!)
+To obtain the exact y-values in the exact same order is extremely unlikely given the model, simply because we have very many data points. 
+The likelihood is so close to zero, that our computer (with limited precision) displays '0' as output of the likelihood_function. This is why we calculate the log-likelihood as it computes a more useful result.
+
+
     iv. now show that the log-likelihood is a little off when applied to the partial pooling model - (the likelihood function is different for the multilevel function - see section 2.1 of https://www.researchgate.net/profile/Douglas-Bates/publication/2753537_Computational_Methods_for_Multilevel_Modelling/links/00b4953b4108d73427000000/Computational-Methods-for-Multilevel-Modelling.pdf if you are interested)  
+    
+```{r}
+log_likelihood_function(pp, data$correct)
+logLik(pp)
+```
+Comments:
+Our log_likelihood_function does not exactly match the logLik function when applied to a partial pooling model. This is expected considering that the likelihood is calculated differently for multilevel models. 
+    
 2) Use log-likelihood ratio tests to argue for the addition of predictor variables, start from the null model, `glm(correct ~ 1, 'binomial', data)`, then add subject-level intercepts, then add a group-level effect of _target.frames_ and finally add subject-level slopes for _target.frames_. Also assess whether or not a correlation between the subject-level slopes and the subject-level intercepts should be included.
+
+```{r}
+#null model
+m0 <- glm(correct ~ 1, family = binomial(link = logit), data=data) 
+
+#subject level intercepts
+m1 <- glmer(correct ~ 1 + (1|subject), family = binomial(link = logit), data=data)
+
+#added group level effect of target.frames
+m2 <- glmer(correct ~ 1 + target.frames + (1|subject), family = binomial(link = logit), data=data) 
+
+#without correlation between the subject-level slopes and the subject-level intercepts
+m3 <- glmer(correct ~ 1 + target.frames + (1+target.frames||subject), family = binomial(link = logit), data=data)
+
+#with correlation between the subject-level slopes and the subject-level intercepts
+m4 <- glmer(correct ~ 1 + target.frames + (1+target.frames|subject), family = binomial(link = logit), data=data) 
+
+
+
+
+anova(m1, m2, m3, m4)
+```
+Comments:
+The model where there is a correlation between the subject-level slopes and the subject-level intercepts (m4) performs better in the anova comparison - so there should indeed be a correlation included.
+
     i. write a short methods section and a results section where you indicate which model you chose and the statistics relevant for that choice. Include a plot of the estimated group-level function with `xlim=c(0, 8)` that includes the estimated subject-specific functions.
+
+```{r}
+#plot
+
+```
+
     ii. also include in the results section whether the fit didn't look good for any of the subjects. If so, identify those subjects in the report, and judge (no statistical test) whether their performance (accuracy) differed from that of the other subjects. Was their performance better than chance? (Use a statistical test this time) (50 %)  
 3) Now add _pas_ to the group-level effects - if a log-likelihood ratio test justifies this, also add the interaction between _pas_ and _target.frames_ and check whether a log-likelihood ratio test justifies this  
     i. if your model doesn't converge, try a different optimizer  
