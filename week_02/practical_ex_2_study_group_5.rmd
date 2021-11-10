@@ -15,7 +15,8 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-pacman::p_load(tidyverse, lme4)
+library(lme4)
+library(tidyverse)
 ```
 
 # Assignment 1: Using mixed effects modelling to model hierarchical data
@@ -25,7 +26,6 @@ In this assignment we will be investigating the _politeness_ dataset of Winter a
 The dataset has been shared on GitHub, so make sure that the csv-file is on your current path. Otherwise you can supply the full path.
 
 ```{r}
-#setwd("/Users/minaalmasi/Documents/Cognitive_Science/Methods_3/methods3_code/github_methods_3/week_02")
 politeness <- read.csv('politeness.csv') ## read in data
 ```
 
@@ -72,7 +72,7 @@ politeness$scenario <- as.factor(politeness$scenario)
 
 ```{r 1.2}
 #Creating a new data frame with F1 
-F1 <- politeness %>% filter(subject == "F1")
+F1 <- politeness %>% dplyr::filter(subject == "F1")
 
 #Linear model with scenario as integer
 scenario_int <- lm(f0mn~as.integer(scenario), data = F1)
