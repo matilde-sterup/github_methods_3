@@ -1,6 +1,6 @@
 ---
 title: "practical_exercise_7 , Methods 3, 2021, autumn semester"
-author: '[FILL IN YOUR NAME]'
+author: '[Matilde]'
 date: "[FILL IN THE DATE]"
 output: html_document
 ---
@@ -144,15 +144,35 @@ plt.plot(x, y_fit_fifth, 'y-') #fifth order fit
 plt.plot(x,y_noise, 'k.') # generated points 
 plt.xlabel('x')
 plt.ylabel('y')
-plt.title('Plot Exercise 2.2iii')
+plt.title('Plot Exercise 1.2iii')
 plt.legend(['True function', 'Linear fit', 'Quadratic fit', 'Fifth order fit', 'Generated points'])
 plt.show()
 ```
 
 
 3) Simulate 100 samples, each with sample size `len(x)` with $\sigma=5$ normally distributed noise added on top of the true function  
+```{python}
+#100 samples of len(x)
+samples = [y_true + np.random.normal(loc = 0, scale = 5, size = len(x)) for i in range(100)] #scale = sigma
+```
+
 
 i. do linear, quadratic and fifth-order fits for each of the 100 samples 
+```{python}
+regressor = LinearRegression()
+
+#linear
+linear_fits = [linear.fit(x_reshape,y) for y in samples]
+
+#quadratic
+quadratic = PolynomialFeatures(degree = 2)
+X_quadratic = quadratic.fit_transform(x_reshape)
+quadratic_fits = [regressor.fit]
+
+#fifth-order
+
+```
+
 
 ii. create a __new__ figure, `plt.figure`, and plot the linear and the quadratic fits (colour them appropriately); highlight the true value for $x_0=3$. From the graphics alone, judge which fit has the highest bias and which has the highest variance for $x_0$  
     

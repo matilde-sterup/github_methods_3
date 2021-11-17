@@ -1,0 +1,390 @@
+---
+title: "practical_exercise_7 , Methods 3, 2021, autumn semester"
+author: '[Study group 5: Anton, Daniel, Mina & Matilde]'
+date: '[FILL IN THE DATE]'
+output:
+  html_document: default
+  pdf_document: default
+---
+
+<style type="text/css">
+  body{
+  font-size: 14pt;
+}
+</style>
+
+# Setup
+```{r}
+library(reticulate)
+```
+
+```{python}
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import pandas as pd
+```
+
+
+# Exercises and objectives
+
+1) Estimate bias and variance based on a true underlying function  
+2) Fitting training data and applying it to test sets with and without regularization  
+
+For each question and sub-question, please indicate one of the three following answers:  
+    i. I understood what was required of me  
+    ii. I understood what was required of me, but I did not know how to fullfil the requirement  
+    iii. I did not understand what was required of me  
+
+# EXERCISE 1 - Estimate bias and variance based on a true underlying function  
+
+We can express regression as $y = f(x) + \epsilon$ with $E[\epsilon] = 0$ and $var(\epsilon) = \sigma^2$ ($E$ means expected value)  
+  
+For a given point: $x_0$, we can decompose the expected prediction error , $E[(y_0 - \hat{f}(x_0))^2]$ into three parts - __bias__, __variance__ and __irreducible error__ (the first two together are the __reducible error__):
+
+The expected prediction error is, which we also call the __Mean Squared Error__:  
+$E[(y_0 - \hat{f}(x_0))^2] =  bias(\hat{f}(x_0))^2 + var(\hat{f}(x_0)) + \sigma^2$
+  
+where __bias__ is;
+  
+$bias(\hat{f}(x_0)) = E[\hat{f}(x_0)] - f(x_0)$
+
+#### 1) Create a function, $f(x)$ that squares its input. This is our __true__ function  
+
+##### i. generate data, $y$, based on an input range of [0, 6] with a spacing of 0.1. Call this $x$
+```{python}
+#True function
+def squared(x):
+  return(x**2)
+
+#generate data
+x = np.arange(0,6.1,0.1)
+print(x)
+
+y_true = squared(x)
+print(y_true)
+````
+
+##### ii. add normally distributed noise to $y$ with $\sigma=5$ (set a seed to 7 `np.random.seed(7)`) to $y$ and call it $y_{noisy}$
+```{python}
+np.random.seed(7)
+sigma = 5
+
+y_noise = y_true + np.random.normal(loc = 0, scale = sigma, size = len(y_true)) 
+```
+
+
+##### iii. plot the true function and the generated points  
+```{python}
+plt.figure() # create new figure
+plt.plot(x, y_true, 'b-') # plot the true function
+plt.plot(x,y_noise, 'k.') # generated points 
+plt.xlabel('x')
+plt.ylabel('y')
+plt.title('True function and generated points')
+plt.legend(['True function', 'Generated points'])
+plt.show()
+```
+
+
+#### 2) Fit a linear regression using `LinearRegression` from `sklearn.linear_model` based on $y_{noisy}$ and $x$ (see code chunk below associated with Exercise 1.2)  
+```{python}
+from sklearn.linear_model import LinearRegression
+regressor = LinearRegression()
+
+x_reshape = x.reshape(-1,1) #as a column
+fit = regressor.fit(x_reshape,y_noise) 
+```
+
+
+##### i. plot the fitted line (see the `.intercept_` and `.coef_` attributes of the `regressor` object) on top of the plot (from 1.1.iii)
+
+```{python}
+intercept = fit.intercept_ 
+slope = fit.coef_
+
+plt.figure() # create new figure
+plt.plot(x, y_true, 'b-') # plot the true function
+plt.plot(x, slope*x+intercept, 'r-')
+plt.plot(x,y_noise, 'k.') # generated points 
+plt.xlabel('x')
+plt.ylabel('y')
+plt.title('True function, linear fit and generated points')
+plt.legend(['True function', 'Fitted line', 'Generated points'])
+plt.show()
+```
+
+
+##### ii. now run the code chunk below associated with Exercise 1.2.ii - what does X_quadratic amount to?
+```{python}
+from sklearn.preprocessing import PolynomialFeatures
+quadratic = PolynomialFeatures(degree=2)
+X_quadratic = quadratic.fit_transform(x.reshape(-1, 1))
+#X_quadratic is the design matrix from before but with a third column that expresses x squared
+```
+
+
+```{python}
+regressor = LinearRegression()
+fit_q = regressor.fit(X_quadratic, y_noise) #quadratic fit
+#predicted values
+y_quad_fit = regressor.predict(X_quadratic)
+```
+
+#### iii. do a quadratic and a fifth order fit as well and plot them (on top of the plot from 1.2.i)
+```{python}
+fifth_order = PolynomialFeatures(degree=5)
+X_fifth_order = fifth_order.fit_transform(x.reshape(-1, 1))
+regressor = LinearRegression()
+fit_fifth = regressor.fit(X_fifth_order, y_noise) #fifth order fit
+#predicted values
+y_fit_fifth = regressor.predict(X_fifth_order)
+
+
+#Plot
+plt.figure() # create new figure
+plt.plot(x, y_true, 'b-') # plot the true function
+plt.plot(x, slope*x+intercept, 'r-') #linear fit
+plt.plot(x, y_quad_fit, 'g-') #quadratic fit
+plt.plot(x, y_fit_fifth, 'm-') #fifth order fit
+plt.plot(x,y_noise, 'k.') # generated points 
+plt.xlabel('x')
+plt.ylabel('y')
+plt.title('Plot Exercise 2.2iii')
+plt.legend(['True function', 'Linear fit', 'Quadratic fit', 'Fifth order fit', 'Generated points'])
+plt.show()
+```
+
+
+#### 3) Simulate 100 samples, each with sample size `len(x)` with $\sigma=5$ normally distributed noise added on top of the true function (iii) 
+```{python}
+samples = [y_true + np.random.normal(loc = 0, scale = 5, size = len(y_true)) for i in range(100)]
+```
+
+##### i. do linear, quadratic and fifth-order fits for each of the 100 samples 
+```{python}
+#Linear Fits
+linear_fits = []
+linear_predict = []
+
+for y in samples:
+  regressor = LinearRegression()
+  linear_fits.append(regressor.fit(x_reshape, y))
+  linear_predict.append(regressor.predict(x_reshape))
+
+#Quadratic Fits 
+quadratic = PolynomialFeatures(degree=2)
+X_quadratic = quadratic.fit_transform(x.reshape(-1, 1))
+
+quadratic_fits = []
+quadratic_predict = []
+
+for y in samples:
+  regressor = LinearRegression()
+  quadratic_fits.append(regressor.fit(X_quadratic, y))
+  quadratic_predict.append(regressor.predict(X_quadratic))
+
+#Fifth-order fits
+fifth_order = PolynomialFeatures(degree=5)
+X_fifth_order = fifth_order.fit_transform(x.reshape(-1, 1))
+
+fifth_fits = []
+fifth_predict = []
+
+for y in samples:
+  regressor = LinearRegression()
+  fifth_fits.append(regressor.fit(X_fifth_order, y))
+  fifth_predict.append(regressor.predict(X_fifth_order))
+```
+
+
+##### ii. create a __new__ figure, `plt.figure`, and plot the linear and the quadratic fits (colour them appropriately); highlight the true value for $x_0=3$. From the graphics alone, judge which fit has the highest bias and which has the highest variance for $x_0$  
+```{python}
+plt.figure() # create new figure
+[plt.plot(x, y, 'r-', alpha = 0.1) for y in linear_predict]
+[plt.plot(x, y, 'g-', alpha = 0.1) for y in quadratic_predict]
+plt.plot(x, y_true, 'b-') # plot the true function
+plt.axvline(x = 3, color = "black")
+plt.plot(3,9, 'ko')
+plt.xlabel('x')
+plt.ylabel('y')
+
+true = mpatches.Patch(color='blue', label='True Fit')
+linear = mpatches.Patch(color='red', label='Linear Fits')
+quadratic = mpatches.Patch(color='green', label='Quadratic Fits')
+x0 = mpatches.Patch(color='black', label='x0=3')
+
+plt.title('Plotting Linear & Quadratic Fits')
+plt.legend(handles=[true, linear, quadratic, x0])
+plt.show()
+```
+
+Judging from the plot alone, the linear fits seem to not have as much variance as the quadratic fits. However, the linear fits are further away from the true function, indicating more bias than the quadratic fits. 
+    
+##### iii. create a __new__ figure, `plt.figure`, and plot the quadratic and the fifth-order fits (colour them appropriately); highlight the true value for $x_0=3$. From the graphics alone, judge which fit has the highest bias and which has the highest variance for $x_0$  
+```{python}
+plt.figure() # create new figure
+[plt.plot(x, y, 'm-', alpha = 0.3) for y in fifth_predict]
+[plt.plot(x, y, 'g-', alpha = 0.2) for y in quadratic_predict]
+plt.plot(x, y_true, 'b-') # plot the true function
+plt.axvline(x = 3, color = "black")
+plt.plot(3,9, 'ko')
+plt.xlabel('x')
+plt.ylabel('y')
+
+true = mpatches.Patch(color='blue', label='True Fit')
+quadratic = mpatches.Patch(color='green', label='Quadratic Fits')
+fifth = mpatches.Patch(color='magenta', label='Fifth Order Fits')
+x0 = mpatches.Patch(color='black', label='x0=3')
+
+plt.title('Plotting Quadratic & Fifth-Order Fits')
+plt.legend(handles=[true, quadratic, fifth, x0])
+plt.show()
+```
+
+The two types of fits seem to be quite similar although the fifth order fits seem to have more variance. This makes sense considering the added complexity of the fifth order fits increases chances of overfitting to the data. 
+
+    
+##### iv. estimate the __bias__ and __variance__ at $x_0$ for the linear, the quadratic and the fifth-order fits (the expected value $E[\hat{f}(x_0)] - f(x_0)$ is found by taking the mean of all the simulated, $\hat{f}(x_0)$, differences) (ii)
+
+We calculate the __bias__:
+$bias(\hat{f}(x_0)) = E[\hat{f}(x_0)] - f(x_0)$
+
+```{python}
+## CALCULATING THE BIAS ## 
+y_true[30] # The true value for x0 = 3 is 9. Here we show that this value is number 30 in the array of y-values.
+
+fittedx03_linear = [linear_predict[i][30] for i in range(len(linear_predict))]
+fittedx03_quadratic = [quadratic_predict[i][30] for i in range(len(quadratic_predict))]
+fittedx03_fifth = [fifth_predict[i][30] for i in range(len(fifth_predict))]
+
+bias_linear = np.mean(fittedx03_linear) - 9
+bias_quadratic = np.mean(fittedx03_quadratic) - 9
+bias_fifth = np.mean(fittedx03_fifth) - 9
+
+bias = np.array([bias_linear, bias_quadratic, bias_fifth])
+bias
+
+## CALCULATING THE VARIANCE ##
+var_linear = np.var(fittedx03_linear)
+var_quadratic = np.var(fittedx03_quadratic)
+var_fifth = np.var(fittedx03_fifth)
+
+variance = np.array([var_linear, var_quadratic, var_fifth])
+variance
+```
+    
+##### v. show how the __squared bias__ and the __variance__ is related to the complexity of the fitted models  
+```{python}
+## CALCULATING THE SQUARED BIAS ## 
+squared_bias_linear = squared(bias_linear)
+squared_bias_quadratic = squared(bias_quadratic)
+squared_bias_fifth = squared(bias_fifth)
+
+squared_bias = np.array([squared_bias_linear, squared_bias_quadratic, squared_bias_fifth])
+squared_bias
+
+## VISUALISING ## 
+plt.figure()
+plt.plot(["linear", "quadratic", "fifth"], squared_bias, "ko")
+plt.plot(["linear", "quadratic", "fifth"], variance, "ro")
+plt.legend(["Squared Bias", "Variance"])
+plt.title("Visualising Squared Bias & Variance")
+plt.show()
+
+```
+
+As predicted from the plot made in 1.3ii, the linear fit has the highest bias but lowest variance. The fifth order plots has the lowest bias, but also the highest variance. This illustrates the bias-variance trade-off.  
+    
+##### vi. simulate __epsilon__: `epsilon = np.random.normal(scale=5, size=100)`. Based on your simulated values of __bias, variance and epsilon__, what is the __Mean Squared Error__ for each of the three fits? Which fit is better according to this measure? (III)!
+
+The formula for the expected prediction error or __Mean Squared Error__ is:  
+$E[(y_0 - \hat{f}(x_0))^2] =  bias(\hat{f}(x_0))^2 + var(\hat{f}(x_0)) + \sigma^2$
+
+```{python}
+epsilon = np.random.normal(scale=5, size=100)
+#Why the size of 100?
+
+MSE_linear = bias_linear - var_linear + epsilon
+MSE_quadratic = bias_quadratic - var_quadratic + epsilon
+MSE_fifth = bias_fifth - var_fifth + epsilon
+
+MSE_fifth
+
+MSE = np.array([MSE_linear, MSE_quadratic, MSE_fifth])
+MSE
+
+```
+
+
+    
+```{python, eval=FALSE}
+# Exercise 1.2
+from sklearn.linear_model import LinearRegression
+regressor = LinearRegression()
+regressor.fit() ## what goes in here?
+```    
+
+```{python, eval=FALSE}
+# Exercise 1.2.ii
+from sklearn.preprocessing import PolynomialFeatures
+quadratic = PolynomialFeatures(degree=2)
+X_quadratic = quadratic.fit_transform(x.reshape(-1, 1))
+regressor = LinearRegression()
+regressor.fit() # what goes in here?
+y_quadratic_hat # calculate this
+
+```
+
+# EXERCISE 2: Fitting training data and applying it to test sets with and without regularization
+
+All references to pages are made to this book:
+Raschka, S., 2015. Python Machine Learning. Packt Publishing Ltd.  
+
+1) Import the housing dataset using the upper chunk of code from p. 280 
+    i. and define the correlation matrix `cm` as done on p. 284  
+    ii. based on this matrix, do you expect collinearity can be an issue if we run multiple linear regression  by fitting MEDV on LSTAT, INDUS, NOX and RM?  
+
+2) Fit MEDV on  LSTAT, INDUS, NOX and RM (standardize all five variables by using `StandardScaler.fit_transform`, (`from sklearn.preprocessing import StandardScaler`) by doing multiple linear regression using `LinearRegressionGD` as defined on pp. 285-286
+    i. how much does the solution improve in terms of the cost function if you go through 40 iterations instead of the default of 20 iterations?  
+    ii. how does the residual sum of squares based on the analytic solution (Ordinary Least Squares) compare to the cost after 40 iterations?
+    iii. Bonus question: how many iterations do you need before the Ordinary Least Squares and the Gradient Descent solutions result in numerically identical residual sums of squares?  
+3) Build your own cross-validator function. This function should randomly split the data into $k$ equally sized folds (see figure p. 176) (see the code chunk associated with exercise 2.3). It should also return the Mean Squared Error for each of the folds
+    i. Cross-validate the fits of your model from Exercise 2.2. Run 11 folds and run 500 iterations for each fit  
+    ii. What is the mean of the mean squared errors over all 11 folds?  
+4) Now, we will do a Ridge Regression. Use `Ridge` (see code chunk associated with Exercise 2.4) to find the optimal `alpha` parameter ($\lambda$)
+    i. Find the _MSE_ (the mean of the _MSE's_ associated with each fold) associated with a reasonable range of `alpha` values (you need to find the lambda that results in the minimum _MSE_)  
+    ii. Plot the _MSE_ as a function of `alpha` ($\lambda$). Make sure to include an _MSE_ for `alpha=0` as well  
+    iii. Find the _MSE_ for the optimal `alpha`, compare its _MSE_ to that of the OLS regression
+    iv. Do the same steps for Lasso Regression `Lasso`  (2.4.i.-2.4.iii.)
+    v. Describe the differences between these three models, (the optimal Lasso, the optimal Ridge and the OLS)
+
+
+```{python, eval=FALSE}
+# Exercise 2.3
+def cross_validate(estimator, X, y, k): # estimator is the object created by initialising LinearRegressionGD
+    mses = list() # we want to return k mean squared errors
+    fold_size = y.shape[0] // k # we do integer division to get a whole number of samples
+    for fold in range(k): # loop through each of the folds
+        
+        X_train = ?
+        y_train = ?
+        X_test = ?
+        y_test = ?
+        
+        # fit training data
+        # predict on test data
+        # calculate MSE
+        
+    return mses
+```
+
+```{python, eval=FALSE}
+# Exercise 2.4
+from sklearn.linear_model import Ridge, Lasso
+RR = Ridge(alpha=?)
+LassoR = Lasso(alpha)
+
+
+```
+
